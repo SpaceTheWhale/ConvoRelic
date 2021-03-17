@@ -1,6 +1,5 @@
-
 let camera3D, scene, renderer
-let myCanvas, myVideo;
+let myCanvas, myVideo, myAudio;
 let people = [];
 let myRoomName = "ConvoArtifact";   //make a different room from classmates
 let p5lm;
@@ -17,19 +16,22 @@ let database;
 let ref;
 let data;
 
+function listening() {
+    console.log('listening');
+
+}
+
 function setup() {
     myCanvas = createCanvas(512, 512);
     myCanvas.hide();
 
-    mic = new p5.AudioIn();
-    mic.start();
-    
-    vol = mic.getLevel();
 
-    //let captureConstraints = allowCameraSelection(myCanvas.width, myCanvas.height);
-    // myVideo = createCapture(captureConstraints);
+
+
+    let captureConstraints = allowCameraSelection(myCanvas.width, myCanvas.height);
+    myVideo = createCapture(captureConstraints);
     //below is simpler if you don't need to select Camera because default is okay
-    myVideo = createCapture(VIDEO);
+    // myVideo = createCapture(VIDEO);
     myVideo.size(myCanvas.width, myCanvas.height);
     myVideo.elt.muted = true;
     myVideo.hide()
@@ -38,6 +40,10 @@ function setup() {
     p5lm = new p5LiveMedia(this, "CANVAS", myCanvas, myRoomName)
     p5lm.on('stream', gotStream);
     p5lm.on('disconnect', gotDisconnect);
+
+
+
+
 
     //ALSO ADD AUDIO STREAM
     //addAudioStream() ;
@@ -49,6 +55,17 @@ function setup() {
 
 }
 
+function mouseReleased() {
+    if (!mic) {
+        mic = new p5.AudioIn(function (e) { console.log("couldn't get audio", e) });
+        //console.log(mic);
+        //let sources = mic.getSources();
+        //console.log(sources);
+        //mic.setSource(0);
+        mic.start();
+        console.log("Started Mic");
+    }
+}
 
 
 
@@ -56,10 +73,10 @@ function setup() {
 
 function myTextInputEvent() {
 
-        console.log(textInput.value());
-        //when they hit return in text box add a new word
-        //use an "object literal" to stor multiple variables for each word in JSON format, place them randomly
-        if (textInput.value() != "")
+    console.log(textInput.value());
+    //when they hit return in text box add a new word
+    //use an "object literal" to stor multiple variables for each word in JSON format, place them randomly
+    if (textInput.value() != "")
         words.push({ "word": textInput.value(), "x": random(0, width), "y": random(0, height), "xSpeed": 1, "ySpeed": 1 });
 
 }
@@ -86,6 +103,8 @@ function creatNewVideoObject(videoObject, id) {  //this is for remote and local
     positionEveryoneOnACircle();
 }
 
+
+
 function draw() {
     //other people
     //go through all the people an update their texture, animate would be another place for this
@@ -102,10 +121,12 @@ function draw() {
     clear();
     image(myVideo, (myCanvas.width - myVideo.width) / 2, (myCanvas.height - myVideo.height) / 2);
 
-    ref.push(lineArr);
-    console.log(lineArr);
+    //ref.push(lineArr);
+    //console.log(lineArr);
 
-
+    if (mic) {
+        console.log("level", mic.getLevel());
+    }
 }
 
 function gotDisconnect(id) {
@@ -136,34 +157,42 @@ function positionEveryoneOnACircle() {
     }
 }
 
-function updatePositions(){
+function updatePositions() {
 
 
-	var positions = line.geometry.attributes.position.array;
+    var positions = line.geometry.attributes.position.array;
 
-	var x = y = z = index = 0;
+    var x = 0;
+    var y = -1;
+    var z = 0;
+    var index = 0;
+
 
     var lineArr = JSON.stringify(positions);
-    
 
-	for ( var i = 0, l = MAX_POINTS; i < l; i ++ ) {
 
-		if(i !== MAX_POINTS){
-        positions[ index ++ ] = x;
-		positions[ index ++ ] = y;
-		positions[ index ++ ] = z;
+    for (var i = 0, l = MAX_POINTS; i < l; i++) {
 
-		x += ( Math.random() - 0.5 ) * 30;
-		y += ( Math.random() - 0.5 ) * 30;
-		z += ( Math.random() - 0.5 ) * 30;
+        if (i !== MAX_POINTS) {
+            positions[index++] = x;
+            positions[index++] = y;
+            positions[index++] = z;
+
+            x = Math.sin(i * (Math.PI / 180));
+            y = y + (mic.getLevel()/100);
+            z = Math.cos(i * (Math.PI / 180));
+
+            //console.log(y);
+
+
         }
-        
+
         // ref.push(lineArr);
         // console.log(lineArr);
 
-	}
+    }
 
-    
+
 
 }
 
@@ -187,23 +216,23 @@ function init3D() {
     let back = new THREE.Mesh(bgGeometery, backMaterial);
     scene.add(back);
 
-   	// geometry
-	var geometry = new THREE.BufferGeometry();
+    // geometry
+    var geometry = new THREE.BufferGeometry();
 
-	// attributes
-	var positions = new Float32Array( MAX_POINTS * 3 ); // 3 vertices per point
-	geometry.addAttribute( 'position', new THREE.BufferAttribute( positions, 3 ) );
+    // attributes
+    var positions = new Float32Array(MAX_POINTS * 3); // 3 vertices per point
+    geometry.addAttribute('position', new THREE.BufferAttribute(positions, 3));
 
     // drawcalls
     drawCount = 2; // draw the first 2 points, only
-    geometry.setDrawRange( 0, drawCount );
+    geometry.setDrawRange(0, drawCount);
 
     // material
-    var material = new THREE.LineBasicMaterial( { color: 0xff0000, linewidth: 2 } );
+    var material = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 2 });
 
     // line
-    line = new THREE.Line( geometry,  material );
-    scene.add( line );
+    line = new THREE.Line(geometry, material);
+    scene.add(line);
 
     // update positions
     updatePositions();
@@ -213,49 +242,49 @@ function init3D() {
     camera3D.position.z = 0;
     animate();
 
-   
- 
+
+
 }
 
-function connectToFirebase(){
-         // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-  var firebaseConfig = {
-    apiKey: "AIzaSyAlMoFSYXMq7fVNUEcJvJoYJceML2ex5pg",
-    authDomain: "convorelic.firebaseapp.com",
-    projectId: "convorelic",
-    storageBucket: "convorelic.appspot.com",
-    messagingSenderId: "342799204648",
-    appId: "1:342799204648:web:933d50d5b9d34e6b7cd01d",
-    measurementId: "G-7H984ERHHV"
-  };
-  // Initialize Firebase
-  firebase.initializeApp(firebaseConfig);
-  firebase.analytics();
+function connectToFirebase() {
+    // Your web app's Firebase configuration
+    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+    var firebaseConfig = {
+        apiKey: "AIzaSyAlMoFSYXMq7fVNUEcJvJoYJceML2ex5pg",
+        authDomain: "convorelic.firebaseapp.com",
+        projectId: "convorelic",
+        storageBucket: "convorelic.appspot.com",
+        messagingSenderId: "342799204648",
+        appId: "1:342799204648:web:933d50d5b9d34e6b7cd01d",
+        measurementId: "G-7H984ERHHV"
+    };
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    firebase.analytics();
 
- database = firebase.database();
- ref = database.ref('points')
+    database = firebase.database();
+    ref = database.ref('points')
 
- data = points;
+    data = points;
 }
 
 function animate() {
     requestAnimationFrame(animate);
-	
+
     //Draw Count adding lines
-    drawCount = ( drawCount + 1 ) % MAX_POINTS;
+    drawCount = (drawCount + 1) % MAX_POINTS;
 
-	line.geometry.setDrawRange( 0, drawCount );
+    line.geometry.setDrawRange(0, drawCount);
 
-	if ( drawCount === 0 ) {
+    if (drawCount === 0) {
 
-		// periodically, generate new data
+        // periodically, generate new data
 
-		updatePositions();
+        updatePositions();
 
-		line.geometry.attributes.position.needsUpdate = true; // required after the first render
+        line.geometry.attributes.position.needsUpdate = true; // required after the first render
 
-		line.material.color.setHSL( Math.random(), 1, 0.5 );
+        line.material.color.setHSL(Math.random(), 1, 0.5);
 
     }
 
